@@ -1,0 +1,12 @@
+{
+  "coverage": "100%",
+  "expectCount": 14,
+  "actualCount": 14,
+  "files": {
+    "wolt/index.js": {
+      "expectCount": 14,
+      "actualCount": 14,
+      "undocumentLines": []
+    }
+  }
+}

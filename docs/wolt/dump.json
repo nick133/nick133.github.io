@@ -1,0 +1,1260 @@
+[
+  {
+    "__docId__": 0,
+    "kind": "file",
+    "name": "wolt/index.js",
+    "content": "/*\r\n *  WOLT - minimalistic tasks assistant\r\n *\r\n *  Copyright 2017-present by nick133 <nick133@gmail.com>\r\n */\r\n\r\n/** @ignore */\r\nconst chalk = require('chalk'),\r\n      fs    = require('fs'),\r\n      glob  = require('glob');\r\n\r\n\r\n/** Container for tasks and dependency tracking\r\n *  @private\r\n */\r\nconst tasks = {\r\n  __done__: [], // done tasks\r\n};\r\n\r\n/** Exported methods/vars */\r\nconst task = {};\r\n\r\ntask.argv = require('yargs')\r\n  .alias({\r\n    't': ['task', 'tasks'],\r\n    'q': ['s', 'quiet', 'silent'],\r\n    'd': ['g', 'v', 'debug', 'verbose'],\r\n    'h': ['help'],\r\n  })\r\n  .usage('Usage: $0 [options]')\r\n  .help('h')\r\n  .describe('t', 'Run task(s)')\r\n  .describe('d', 'Verbose output')\r\n  .describe('q', 'Silent mode')\r\n  .epilog('copyright 2017-present')\r\n  .boolean(['d', 'q'])\r\n  .argv;\r\n\r\n\r\n/** Generate nice colored time\r\n *  @return {string} Formatted time [12:34:56]\r\n *  @private\r\n */\r\nconst niceTime = function() {\r\n  let date = new Date();\r\n\r\n  let hour = date.getHours();\r\n  hour = (hour < 10 ? \"0\" : \"\") + hour;\r\n\r\n  let min = date.getMinutes();\r\n  min = (min < 10 ? \"0\" : \"\") + min;\r\n\r\n  let sec = date.getSeconds();\r\n  sec = (sec < 10 ? \"0\" : \"\") + sec;\r\n\r\n  return '[' + chalk.grey(hour + ':' + min + ':' + sec) + ']';\r\n}\r\n\r\n\r\n/** Logs anonymous messages\r\n *  @param {...string} mesg - Messages\r\n *  @example\r\n *  task.msg('Message', 'from', 'nowhere');\r\n */\r\ntask.msg = function(...mesg) {\r\n  if (task.argv.quiet) return;\r\n\r\n  console.log([niceTime()].concat(mesg).join(' '));\r\n};\r\n\r\n\r\n/** Logs messages from task\r\n *  @param {string} from - Task badge\r\n *  @param {...string} mesg - Messages\r\n *  @example\r\n *  task.log('build', 'Build started');\r\n */\r\ntask.log = function(from, ...mesg) {\r\n  task.msg(mesg.join(' '), '[' + chalk.cyan(from) + ']');\r\n};\r\n\r\n\r\n/** Logs error messages\r\n *  @param {string} from - Task badge\r\n *  @param {...string} mesg - Error messages\r\n */\r\ntask.error = function(from, ...mesg) {\r\n  task.argv.quiet = false;\r\n  task.log(from, chalk.red.bold('ERROR:'), mesg.join(' '));\r\n}\r\n\r\n\r\n/** Logs warning messages\r\n *  @param {string} from - Task badge\r\n *  @param {...string} mesg - Warnings\r\n */\r\ntask.warn = function(from, ...mesg) {\r\n  task.argv.quiet = false;\r\n  task.log(from, chalk.yellow.bold('WARNING:'), mesg.join(' '));\r\n}\r\n\r\n\r\n/** Defines task\r\n *  @param {string} id - Task name\r\n *  @param {function} batch - function associated with a task. If it's string - works like alias too\r\n */\r\ntask.is = function(id, batch) { tasks[id] = batch };\r\n\r\n\r\n/** Executes task\r\n *  @param {string} id - Task name\r\n *  @param {Object} [params] - Task params\r\n *  @param {boolean} [force] - Force execution, no registering, no checks\r\n */\r\ntask.do = function(id, params = {}, force = false) {\r\n  if (typeof(tasks[id]) === 'string') return task.do(tasks[id], params, force); // Alias\r\n\r\n  if (!force && !task.reg(id)) return; // Already done? Register or quit\r\n\r\n  if (typeof(tasks[id]) !== 'function')\r\n    throw 'Invalid or undefined task: ' + id;\r\n\r\n  task.log(id, 'Begin');\r\n  let ret = tasks[id](params);\r\n  task.log(id, 'End');\r\n\r\n  return ret;\r\n}\r\n\r\n/** Shortcut for forced task execution, see {@link do} */\r\ntask.force = function(id, params = {}) {\r\n  return task.do(id, params, true);\r\n};\r\n\r\n\r\n/** Checks task status, is it done?\r\n *  @param {string} id - Task name\r\n *  @return {boolean} *true* if done, *false* if undone\r\n */\r\ntask.done = function(id) { return tasks.__done__.indexOf(id) > -1 };\r\n\r\n\r\n/** Registers task as done\r\n *  @param {string} id - Task name\r\n *  @return {boolean} *true* if success, *false* if task is already done\r\n */\r\ntask.reg = function(id) {\r\n  if (task.done(id)) return false;\r\n\r\n  tasks.__done__.push(id);\r\n  return true;\r\n}\r\n\r\n\r\n/** Clears done status for a task\r\n *  @param {string} id - Task name\r\n *  @return {boolean} *true* if success, *false* if task is not done yet\r\n */\r\ntask.undo = function(id) {\r\n  if (!task.done(id)) return false;\r\n\r\n  tasks.__done__[tasks.__done__.indexOf(id)] = undefined;\r\n  return true;\r\n}\r\n\r\n\r\n/** Registers alias(es) for a task\r\n *  @param {string} id - Task name\r\n *  @param {...string} aliases - Task alias(es)\r\n *  @example\r\n *  task.alias('default', 'build', 'main');\r\n */\r\ntask.alias = function(id, ...aliases) {\r\n  aliases.forEach(alias => task.is(id, alias));\r\n}\r\n\r\n\r\n/** Checks sources vs destinations last modification times\r\n *  @param {string[]} src - Sources globs to check. Can be single string\r\n *  @param {string[]} dest - Resulting build files to check. Can be single string\r\n *  @param {Object} [options] - Options for *glob.sync()* when matching sources\r\n *  @return {boolean} *true* if rebuild is needed, *false* if all files are up to date\r\n *  @example\r\n *  if (!task.check('src/*.js', 'build/static/main.js') return;\r\n */\r\ntask.check = function(src, dest, options = {}) {\r\n  let lastSrcDate  = 0,\r\n      lastDestDate = 0;\r\n\r\n  let getLastTime = (files, mode) => {\r\n    let last = 0;\r\n\r\n    files.forEach(file => {\r\n      if (mode && !fs.existsSync(file)) return true; // Needs rebuild (dest mode)\r\n\r\n      let ctime = fs.statSync(file).ctime.getTime();\r\n\r\n      if (ctime > last) last = ctime;\r\n    });\r\n\r\n    return last;\r\n  };\r\n\r\n  lastDestDate = getLastTime(typeof(dest) === 'string' ? [dest] : dest, true);\r\n\r\n  let srcs = [];\r\n\r\n  if (typeof(src) === 'string')\r\n    srcs = glob.sync(src, options);\r\n  else if (typeof(src) === 'object' && Array.isArray(src))\r\n    src.forEach(pattern => srcs = srcs.concat(glob.sync(pattern, options)));\r\n\r\n  lastSrcDate = getLastTime(srcs);\r\n\r\n  return lastSrcDate > lastDestDate;\r\n};\r\n\r\n\r\n/** Process tasks execution and command line options */\r\ntask.cli = function() {\r\n  if (task.argv.task === undefined)\r\n    task.do('default');\r\n  else\r\n    task.argv.task.split(',').forEach(task.do);\r\n};\r\n\r\n\r\nmodule.exports = task;\r\n",
+    "static": true,
+    "longname": "wolt/index.js",
+    "access": null,
+    "description": null,
+    "lineNumber": 1
+  },
+  {
+    "__docId__": 1,
+    "kind": "variable",
+    "name": "chalk",
+    "memberof": "wolt/index.js",
+    "static": true,
+    "longname": "wolt/index.js~chalk",
+    "access": null,
+    "export": false,
+    "importPath": "wolt/wolt/index.js",
+    "importStyle": null,
+    "description": null,
+    "lineNumber": 8,
+    "ignore": true,
+    "type": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 2,
+    "kind": "variable",
+    "name": "tasks",
+    "memberof": "wolt/index.js",
+    "static": true,
+    "longname": "wolt/index.js~tasks",
+    "access": "private",
+    "export": false,
+    "importPath": "wolt/wolt/index.js",
+    "importStyle": null,
+    "description": "Container for tasks and dependency tracking",
+    "lineNumber": 16,
+    "type": {
+      "types": [
+        "{\"__done__\": *}"
+      ]
+    }
+  },
+  {
+    "__docId__": 3,
+    "kind": "variable",
+    "name": "task",
+    "memberof": "wolt/index.js",
+    "static": true,
+    "longname": "wolt/index.js~task",
+    "access": null,
+    "export": false,
+    "importPath": "wolt/wolt/index.js",
+    "importStyle": null,
+    "description": "Exported methods/vars",
+    "lineNumber": 21,
+    "type": {
+      "types": [
+        "{}"
+      ]
+    }
+  },
+  {
+    "__docId__": 4,
+    "kind": "function",
+    "name": "niceTime",
+    "memberof": "wolt/index.js",
+    "generator": false,
+    "async": false,
+    "static": true,
+    "longname": "wolt/index.js~niceTime",
+    "access": "private",
+    "export": false,
+    "importPath": "wolt/wolt/index.js",
+    "importStyle": null,
+    "description": "Generate nice colored time",
+    "lineNumber": 44,
+    "params": [],
+    "return": {
+      "nullable": null,
+      "types": [
+        "string"
+      ],
+      "spread": false,
+      "description": "Formatted time [12:34:56]"
+    }
+  },
+  {
+    "__docId__": 5,
+    "kind": "function",
+    "name": "msg",
+    "memberof": "wolt/index.js",
+    "generator": false,
+    "async": false,
+    "static": true,
+    "longname": "wolt/index.js~msg",
+    "access": null,
+    "export": false,
+    "importPath": "wolt/wolt/index.js",
+    "importStyle": null,
+    "description": "Logs anonymous messages",
+    "examples": [
+      " task.msg('Message', 'from', 'nowhere');"
+    ],
+    "lineNumber": 65,
+    "params": [
+      {
+        "nullable": null,
+        "types": [
+          "...string"
+        ],
+        "spread": true,
+        "optional": false,
+        "name": "mesg",
+        "description": "Messages"
+      }
+    ]
+  },
+  {
+    "__docId__": 6,
+    "kind": "function",
+    "name": "log",
+    "memberof": "wolt/index.js",
+    "generator": false,
+    "async": false,
+    "static": true,
+    "longname": "wolt/index.js~log",
+    "access": null,
+    "export": false,
+    "importPath": "wolt/wolt/index.js",
+    "importStyle": null,
+    "description": "Logs messages from task",
+    "examples": [
+      " task.log('build', 'Build started');"
+    ],
+    "lineNumber": 78,
+    "params": [
+      {
+        "nullable": null,
+        "types": [
+          "string"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "from",
+        "description": "Task badge"
+      },
+      {
+        "nullable": null,
+        "types": [
+          "...string"
+        ],
+        "spread": true,
+        "optional": false,
+        "name": "mesg",
+        "description": "Messages"
+      }
+    ]
+  },
+  {
+    "__docId__": 7,
+    "kind": "function",
+    "name": "error",
+    "memberof": "wolt/index.js",
+    "generator": false,
+    "async": false,
+    "static": true,
+    "longname": "wolt/index.js~error",
+    "access": null,
+    "export": false,
+    "importPath": "wolt/wolt/index.js",
+    "importStyle": null,
+    "description": "Logs error messages",
+    "lineNumber": 87,
+    "params": [
+      {
+        "nullable": null,
+        "types": [
+          "string"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "from",
+        "description": "Task badge"
+      },
+      {
+        "nullable": null,
+        "types": [
+          "...string"
+        ],
+        "spread": true,
+        "optional": false,
+        "name": "mesg",
+        "description": "Error messages"
+      }
+    ]
+  },
+  {
+    "__docId__": 8,
+    "kind": "function",
+    "name": "warn",
+    "memberof": "wolt/index.js",
+    "generator": false,
+    "async": false,
+    "static": true,
+    "longname": "wolt/index.js~warn",
+    "access": null,
+    "export": false,
+    "importPath": "wolt/wolt/index.js",
+    "importStyle": null,
+    "description": "Logs warning messages",
+    "lineNumber": 97,
+    "params": [
+      {
+        "nullable": null,
+        "types": [
+          "string"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "from",
+        "description": "Task badge"
+      },
+      {
+        "nullable": null,
+        "types": [
+          "...string"
+        ],
+        "spread": true,
+        "optional": false,
+        "name": "mesg",
+        "description": "Warnings"
+      }
+    ]
+  },
+  {
+    "__docId__": 9,
+    "kind": "function",
+    "name": "is",
+    "memberof": "wolt/index.js",
+    "generator": false,
+    "async": false,
+    "static": true,
+    "longname": "wolt/index.js~is",
+    "access": null,
+    "export": false,
+    "importPath": "wolt/wolt/index.js",
+    "importStyle": null,
+    "description": "Defines task",
+    "lineNumber": 107,
+    "params": [
+      {
+        "nullable": null,
+        "types": [
+          "string"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "id",
+        "description": "Task name"
+      },
+      {
+        "nullable": null,
+        "types": [
+          "function"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "batch",
+        "description": "function associated with a task. If it's string - works like alias too"
+      }
+    ]
+  },
+  {
+    "__docId__": 10,
+    "kind": "function",
+    "name": "do",
+    "memberof": "wolt/index.js",
+    "generator": false,
+    "async": false,
+    "static": true,
+    "longname": "wolt/index.js~do",
+    "access": null,
+    "export": false,
+    "importPath": "wolt/wolt/index.js",
+    "importStyle": null,
+    "description": "Executes task",
+    "lineNumber": 115,
+    "params": [
+      {
+        "nullable": null,
+        "types": [
+          "string"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "id",
+        "description": "Task name"
+      },
+      {
+        "nullable": null,
+        "types": [
+          "Object"
+        ],
+        "spread": false,
+        "optional": true,
+        "name": "params",
+        "description": "Task params"
+      },
+      {
+        "nullable": null,
+        "types": [
+          "boolean"
+        ],
+        "spread": false,
+        "optional": true,
+        "name": "force",
+        "description": "Force execution, no registering, no checks"
+      }
+    ],
+    "return": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 11,
+    "kind": "function",
+    "name": "force",
+    "memberof": "wolt/index.js",
+    "generator": false,
+    "async": false,
+    "static": true,
+    "longname": "wolt/index.js~force",
+    "access": null,
+    "export": false,
+    "importPath": "wolt/wolt/index.js",
+    "importStyle": null,
+    "description": "Shortcut for forced task execution, see {@link do}",
+    "lineNumber": 131,
+    "params": [
+      {
+        "name": "id",
+        "types": [
+          "*"
+        ]
+      },
+      {
+        "name": "params",
+        "optional": true,
+        "types": [
+          "{}"
+        ],
+        "defaultRaw": {},
+        "defaultValue": "{}"
+      }
+    ],
+    "return": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 12,
+    "kind": "function",
+    "name": "done",
+    "memberof": "wolt/index.js",
+    "generator": false,
+    "async": false,
+    "static": true,
+    "longname": "wolt/index.js~done",
+    "access": null,
+    "export": false,
+    "importPath": "wolt/wolt/index.js",
+    "importStyle": null,
+    "description": "Checks task status, is it done?",
+    "lineNumber": 140,
+    "params": [
+      {
+        "nullable": null,
+        "types": [
+          "string"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "id",
+        "description": "Task name"
+      }
+    ],
+    "return": {
+      "nullable": null,
+      "types": [
+        "boolean"
+      ],
+      "spread": false,
+      "description": "*true* if done, *false* if undone"
+    }
+  },
+  {
+    "__docId__": 13,
+    "kind": "function",
+    "name": "reg",
+    "memberof": "wolt/index.js",
+    "generator": false,
+    "async": false,
+    "static": true,
+    "longname": "wolt/index.js~reg",
+    "access": null,
+    "export": false,
+    "importPath": "wolt/wolt/index.js",
+    "importStyle": null,
+    "description": "Registers task as done",
+    "lineNumber": 147,
+    "params": [
+      {
+        "nullable": null,
+        "types": [
+          "string"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "id",
+        "description": "Task name"
+      }
+    ],
+    "return": {
+      "nullable": null,
+      "types": [
+        "boolean"
+      ],
+      "spread": false,
+      "description": "*true* if success, *false* if task is already done"
+    }
+  },
+  {
+    "__docId__": 14,
+    "kind": "function",
+    "name": "undo",
+    "memberof": "wolt/index.js",
+    "generator": false,
+    "async": false,
+    "static": true,
+    "longname": "wolt/index.js~undo",
+    "access": null,
+    "export": false,
+    "importPath": "wolt/wolt/index.js",
+    "importStyle": null,
+    "description": "Clears done status for a task",
+    "lineNumber": 159,
+    "params": [
+      {
+        "nullable": null,
+        "types": [
+          "string"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "id",
+        "description": "Task name"
+      }
+    ],
+    "return": {
+      "nullable": null,
+      "types": [
+        "boolean"
+      ],
+      "spread": false,
+      "description": "*true* if success, *false* if task is not done yet"
+    }
+  },
+  {
+    "__docId__": 15,
+    "kind": "function",
+    "name": "alias",
+    "memberof": "wolt/index.js",
+    "generator": false,
+    "async": false,
+    "static": true,
+    "longname": "wolt/index.js~alias",
+    "access": null,
+    "export": false,
+    "importPath": "wolt/wolt/index.js",
+    "importStyle": null,
+    "description": "Registers alias(es) for a task",
+    "examples": [
+      " task.alias('default', 'build', 'main');"
+    ],
+    "lineNumber": 173,
+    "params": [
+      {
+        "nullable": null,
+        "types": [
+          "string"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "id",
+        "description": "Task name"
+      },
+      {
+        "nullable": null,
+        "types": [
+          "...string"
+        ],
+        "spread": true,
+        "optional": false,
+        "name": "aliases",
+        "description": "Task alias(es)"
+      }
+    ]
+  },
+  {
+    "__docId__": 16,
+    "kind": "function",
+    "name": "check",
+    "memberof": "wolt/index.js",
+    "generator": false,
+    "async": false,
+    "static": true,
+    "longname": "wolt/index.js~check",
+    "access": null,
+    "export": false,
+    "importPath": "wolt/wolt/index.js",
+    "importStyle": null,
+    "description": "Checks sources vs destinations last modification times",
+    "examples": [
+      " if (!task.check('src/*.js', 'build/static/main.js') return;"
+    ],
+    "lineNumber": 186,
+    "params": [
+      {
+        "nullable": null,
+        "types": [
+          "string[]"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "src",
+        "description": "Sources globs to check. Can be single string"
+      },
+      {
+        "nullable": null,
+        "types": [
+          "string[]"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "dest",
+        "description": "Resulting build files to check. Can be single string"
+      },
+      {
+        "nullable": null,
+        "types": [
+          "Object"
+        ],
+        "spread": false,
+        "optional": true,
+        "name": "options",
+        "description": "Options for *glob.sync()* when matching sources"
+      }
+    ],
+    "return": {
+      "nullable": null,
+      "types": [
+        "boolean"
+      ],
+      "spread": false,
+      "description": "*true* if rebuild is needed, *false* if all files are up to date"
+    }
+  },
+  {
+    "__docId__": 17,
+    "kind": "function",
+    "name": "cli",
+    "memberof": "wolt/index.js",
+    "generator": false,
+    "async": false,
+    "static": true,
+    "longname": "wolt/index.js~cli",
+    "access": null,
+    "export": false,
+    "importPath": "wolt/wolt/index.js",
+    "importStyle": null,
+    "description": "Process tasks execution and command line options",
+    "lineNumber": 220,
+    "params": []
+  },
+  {
+    "__docId__": 19,
+    "kind": "external",
+    "name": "Infinity",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Infinity",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Infinity",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 20,
+    "kind": "external",
+    "name": "NaN",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/NaN",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~NaN",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 21,
+    "kind": "external",
+    "name": "undefined",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/undefined",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~undefined",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 22,
+    "kind": "external",
+    "name": "null",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/null",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~null",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 23,
+    "kind": "external",
+    "name": "Object",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Object",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 24,
+    "kind": "external",
+    "name": "object",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~object",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 25,
+    "kind": "external",
+    "name": "Function",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Function",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 26,
+    "kind": "external",
+    "name": "function",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~function",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 27,
+    "kind": "external",
+    "name": "Boolean",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Boolean",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Boolean",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 28,
+    "kind": "external",
+    "name": "boolean",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Boolean",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~boolean",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 29,
+    "kind": "external",
+    "name": "Symbol",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Symbol",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Symbol",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 30,
+    "kind": "external",
+    "name": "Error",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Error",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 31,
+    "kind": "external",
+    "name": "EvalError",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/EvalError",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~EvalError",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 32,
+    "kind": "external",
+    "name": "InternalError",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/InternalError",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~InternalError",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 33,
+    "kind": "external",
+    "name": "RangeError",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/RangeError",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~RangeError",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 34,
+    "kind": "external",
+    "name": "ReferenceError",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/ReferenceError",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~ReferenceError",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 35,
+    "kind": "external",
+    "name": "SyntaxError",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/SyntaxError",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~SyntaxError",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 36,
+    "kind": "external",
+    "name": "TypeError",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/TypeError",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~TypeError",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 37,
+    "kind": "external",
+    "name": "URIError",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/URIError",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~URIError",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 38,
+    "kind": "external",
+    "name": "Number",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Number",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 39,
+    "kind": "external",
+    "name": "number",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~number",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 40,
+    "kind": "external",
+    "name": "Date",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Date",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 41,
+    "kind": "external",
+    "name": "String",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~String",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 42,
+    "kind": "external",
+    "name": "string",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~string",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 43,
+    "kind": "external",
+    "name": "RegExp",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/RegExp",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~RegExp",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 44,
+    "kind": "external",
+    "name": "Array",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Array",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 45,
+    "kind": "external",
+    "name": "Int8Array",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Int8Array",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Int8Array",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 46,
+    "kind": "external",
+    "name": "Uint8Array",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Uint8Array",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Uint8Array",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 47,
+    "kind": "external",
+    "name": "Uint8ClampedArray",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Uint8ClampedArray",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Uint8ClampedArray",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 48,
+    "kind": "external",
+    "name": "Int16Array",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Int16Array",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Int16Array",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 49,
+    "kind": "external",
+    "name": "Uint16Array",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Uint16Array",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Uint16Array",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 50,
+    "kind": "external",
+    "name": "Int32Array",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Int32Array",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Int32Array",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 51,
+    "kind": "external",
+    "name": "Uint32Array",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Uint32Array",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Uint32Array",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 52,
+    "kind": "external",
+    "name": "Float32Array",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Float32Array",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Float32Array",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 53,
+    "kind": "external",
+    "name": "Float64Array",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Float64Array",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Float64Array",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 54,
+    "kind": "external",
+    "name": "Map",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Map",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 55,
+    "kind": "external",
+    "name": "Set",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Set",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Set",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 56,
+    "kind": "external",
+    "name": "WeakMap",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/WeakMap",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~WeakMap",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 57,
+    "kind": "external",
+    "name": "WeakSet",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/WeakSet",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~WeakSet",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 58,
+    "kind": "external",
+    "name": "ArrayBuffer",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/ArrayBuffer",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~ArrayBuffer",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 59,
+    "kind": "external",
+    "name": "DataView",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/DataView",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~DataView",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 60,
+    "kind": "external",
+    "name": "JSON",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~JSON",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 61,
+    "kind": "external",
+    "name": "Promise",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Promise",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 62,
+    "kind": "external",
+    "name": "Generator",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Generator",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Generator",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 63,
+    "kind": "external",
+    "name": "GeneratorFunction",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/GeneratorFunction",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~GeneratorFunction",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 64,
+    "kind": "external",
+    "name": "Reflect",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Reflect",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Reflect",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 65,
+    "kind": "external",
+    "name": "Proxy",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Proxy",
+    "memberof": "BuiltinExternal/ECMAScriptExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/ECMAScriptExternal.js~Proxy",
+    "access": null,
+    "description": "",
+    "lineNumber": 193,
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 67,
+    "kind": "external",
+    "name": "CanvasRenderingContext2D",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D",
+    "memberof": "BuiltinExternal/WebAPIExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/WebAPIExternal.js~CanvasRenderingContext2D",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 68,
+    "kind": "external",
+    "name": "DocumentFragment",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/API/DocumentFragment",
+    "memberof": "BuiltinExternal/WebAPIExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/WebAPIExternal.js~DocumentFragment",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 69,
+    "kind": "external",
+    "name": "Element",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/API/Element",
+    "memberof": "BuiltinExternal/WebAPIExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/WebAPIExternal.js~Element",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 70,
+    "kind": "external",
+    "name": "Event",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/API/Event",
+    "memberof": "BuiltinExternal/WebAPIExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/WebAPIExternal.js~Event",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 71,
+    "kind": "external",
+    "name": "Node",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/API/Node",
+    "memberof": "BuiltinExternal/WebAPIExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/WebAPIExternal.js~Node",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 72,
+    "kind": "external",
+    "name": "NodeList",
+    "externalLink": "https://developer.mozilla.org/en-US/docs/Web/API/NodeList",
+    "memberof": "BuiltinExternal/WebAPIExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/WebAPIExternal.js~NodeList",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 73,
+    "kind": "external",
+    "name": "XMLHttpRequest",
+    "externalLink": "https://developer.mozilla.org/en/docs/Web/API/XMLHttpRequest",
+    "memberof": "BuiltinExternal/WebAPIExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/WebAPIExternal.js~XMLHttpRequest",
+    "access": null,
+    "description": "",
+    "builtinExternal": true
+  },
+  {
+    "__docId__": 74,
+    "kind": "external",
+    "name": "AudioContext",
+    "externalLink": "https://developer.mozilla.org/en/docs/Web/API/AudioContext",
+    "memberof": "BuiltinExternal/WebAPIExternal.js",
+    "static": true,
+    "longname": "BuiltinExternal/WebAPIExternal.js~AudioContext",
+    "access": null,
+    "description": "",
+    "lineNumber": 34,
+    "builtinExternal": true
+  }
+]
