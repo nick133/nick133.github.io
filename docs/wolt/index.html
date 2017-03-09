@@ -50,7 +50,7 @@
 </div>
 </nav>
 
-<div class="content" data-ice="content"><div data-ice="index" class="github-markdown"><h1 id="wolt-minimalistic-tasks-assistant">WOLT - minimalistic tasks assistant</h1>
+<div class="content" data-ice="content"><div data-ice="index" class="github-markdown"><h1 id="wolt-minimalists-tasks-assistant">WOLT - minimalists tasks assistant</h1>
 <p>To assist you with a simple build tasks.
 For the case when <a href="https://webpack.js.org/">webpack</a> mostly do the job and <a href="http://gulpjs.com/">gulp</a> is an overkill.</p>
 <h2 id="features">Features</h2>
@@ -63,7 +63,7 @@ For the case when <a href="https://webpack.js.org/">webpack</a> mostly do the jo
 <ul>
 <li>no plugins. If you need some module - use it, no special behaviour</li>
 <li>task is a function, dependency is a function. No cryptic syntax, no hints, no tricks - run them when you need in exact order</li>
-<li>run your single script for all tasks, having full controll of its flow, no additional tool/config</li>
+<li>run your single script for all tasks, having full control of its flow, no additional tool/config</li>
 </ul>
 <h2 id="background">Background</h2>
 <p>When I started using <a href="https://webpack.js.org/">webpack</a> I realised there&apos;s no need for <a href="http://gulpjs.com/">gulp</a> anymore.
@@ -71,7 +71,7 @@ Gulp is great, but when it comes to simple tasks and predictable order it&apos;s
 (please read this: <a href="https://github.com/gulpjs/gulp/blob/master/docs/recipes/running-tasks-in-series.md">recipe</a>,
 <a href="https://github.com/gulpjs/gulp/issues/1091">issue</a>,
 <a href="https://medium.com/@dave_lunny/task-dependencies-in-gulp-b885c1ab48f0#.eswk76foc">post</a>).
-Finaly I&apos;ve got back to custom build scripts, but hey, one script per task is a bad idea, I need all-in-one simple
+Finally I&apos;ve got back to custom build scripts, but hey, one script per task is a bad idea, I need all-in-one simple
 config with no additional fancy CLI tool. That&apos;s how it was born.</p>
 <h2 id="api">API</h2>
 <p>See the source please, it&apos;s full of comments and almost no code</p>
@@ -101,7 +101,7 @@ task.is(&apos;build:dev&apos;, () =&gt; {
 
 task.cli();</code>
 </code></pre>
-<p>Now you can run it: <em>node build.js --task clean,build --quiet</em></p>
+<p>Now run it as: <em>node build.js --task clean,build --quiet</em></p>
 <h2 id="faq">FAQ</h2>
 <h3 id="why-didn-t-you-just-use-gnu-make-if-you-don-t-need-async-tasks-">Why didn&apos;t you just use GNU <em>make</em> if you don&apos;t need async tasks?</h3>
 <ul>
@@ -111,9 +111,9 @@ task.cli();</code>
 <ul>
 <li>As I said, I don&apos;t like just-another-one fancy CLI for this and that. Especially when <em>webpack</em> do it all (almost).</li>
 </ul>
-<h3 id="why-do-i-need-this-it-s-source-almost-has-no-code-just-comments-">Why do I need this? It&apos;s source almost has no code, just comments..</h3>
+<h3 id="why-do-i-need-this-its-source-almost-has-no-code-just-comments-">Why do I need this? Its source almost has no code, just comments..</h3>
 <ul>
-<li>Actually you don&apos;t..</li>
+<li>Actually, you don&apos;t..</li>
 </ul>
 <h3 id="what-it-means-wolt-">What it means, WOLT?</h3>
 <ul>
