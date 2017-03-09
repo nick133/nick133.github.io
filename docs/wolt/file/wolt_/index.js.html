@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <base data-ice="baseUrl" href="../../">
+  <title data-ice="title">wolt_/index.js | API Document</title>
+  <link type="text/css" rel="stylesheet" href="css/style.css">
+  <link type="text/css" rel="stylesheet" href="css/prettify-tomorrow.css">
+  <script src="script/prettify/prettify.js"></script>
+  
+  
+  <script src="script/manual.js"></script>
+</head>
+<body class="layout-container" data-ice="rootContainer">
+
+<header>
+  <a href="./">Home</a>
+  
+  <a href="identifiers.html">Reference</a>
+  <a href="source.html">Source</a>
+  
+  <a data-ice="repoURL" href="https://github.com/nick133/wolt" class="repo-url-github">Repository</a>
+  <div class="search-box">
+  <span>
+    <img src="./image/search.png">
+    <span class="search-input-edge"></span><input class="search-input"><span class="search-input-edge"></span>
+  </span>
+    <ul class="search-result"></ul>
+  </div>
+</header>
+
+<nav class="navigation" data-ice="nav"><div>
+  <ul>
+    
+  <li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-alias">alias</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-check">check</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-cli">cli</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-do">do</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-done">done</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-error">error</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-force">force</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-is">is</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-log">log</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-msg">msg</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-reg">reg</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-undo">undo</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-function">F</span><span data-ice="name"><span><a href="function/index.html#static-function-warn">warn</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-task">task</a></span></span></li>
+</ul>
+</div>
+</nav>
+
+<div class="content" data-ice="content"><h1 data-ice="title">wolt_/index.js</h1>
+<pre class="source-code line-number raw-source-code"><code class="prettyprint linenums" data-ice="content">/*
+ *  WOLT - minimalistic tasks assistant
+ *
+ *  Copyright 2017-present by nick133 &lt;nick133@gmail.com&gt;
+ */
+
+/** @ignore */
+const chalk = require(&apos;chalk&apos;),
+      fs    = require(&apos;fs&apos;),
+      glob  = require(&apos;glob&apos;);
+
+
+/** Container for tasks and dependency tracking
+ *  @private
+ */
+const tasks = {
+  __done__: [], // done tasks
+};
+
+/** Exported methods/vars */
+const task = {};
+
+task.argv = require(&apos;yargs&apos;)
+  .alias({
+    &apos;t&apos;: [&apos;task&apos;, &apos;tasks&apos;],
+    &apos;q&apos;: [&apos;s&apos;, &apos;quiet&apos;, &apos;silent&apos;],
+    &apos;d&apos;: [&apos;g&apos;, &apos;v&apos;, &apos;debug&apos;, &apos;verbose&apos;],
+    &apos;h&apos;: [&apos;help&apos;],
+  })
+  .usage(&apos;Usage: $0 [options]&apos;)
+  .help(&apos;h&apos;)
+  .describe(&apos;t&apos;, &apos;Run task(s)&apos;)
+  .describe(&apos;d&apos;, &apos;Verbose output&apos;)
+  .describe(&apos;q&apos;, &apos;Silent mode&apos;)
+  .epilog(&apos;copyright 2017-present&apos;)
+  .boolean([&apos;d&apos;, &apos;q&apos;])
+  .argv;
+
+
+/** Generate nice colored time
+ *  @return {string} Formatted time [12:34:56]
+ *  @private
+ */
+const niceTime = function() {
+  let date = new Date();
+
+  let hour = date.getHours();
+  hour = (hour &lt; 10 ? &quot;0&quot; : &quot;&quot;) + hour;
+
+  let min = date.getMinutes();
+  min = (min &lt; 10 ? &quot;0&quot; : &quot;&quot;) + min;
+
+  let sec = date.getSeconds();
+  sec = (sec &lt; 10 ? &quot;0&quot; : &quot;&quot;) + sec;
+
+  return &apos;[&apos; + chalk.grey(hour + &apos;:&apos; + min + &apos;:&apos; + sec) + &apos;]&apos;;
+}
+
+
+/** Logs anonymous messages
+ *  @param {...string} mesg - Messages
+ *  @example
+ *  task.msg(&apos;Message&apos;, &apos;from&apos;, &apos;nowhere&apos;);
+ */
+task.msg = function(...mesg) {
+  if (task.argv.quiet) return;
+
+  console.log([niceTime()].concat(mesg).join(&apos; &apos;));
+};
+
+
+/** Logs messages from task
+ *  @param {string} from - Task badge
+ *  @param {...string} mesg - Messages
+ *  @example
+ *  task.log(&apos;build&apos;, &apos;Build started&apos;);
+ */
+task.log = function(from, ...mesg) {
+  task.msg(mesg.join(&apos; &apos;), &apos;[&apos; + chalk.cyan(from) + &apos;]&apos;);
+};
+
+
+/** Logs error messages
+ *  @param {string} from - Task badge
+ *  @param {...string} mesg - Error messages
+ */
+task.error = function(from, ...mesg) {
+  task.argv.quiet = false;
+  task.log(from, chalk.red.bold(&apos;ERROR:&apos;), mesg.join(&apos; &apos;));
+}
+
+
+/** Logs warning messages
+ *  @param {string} from - Task badge
+ *  @param {...string} mesg - Warnings
+ */
+task.warn = function(from, ...mesg) {
+  task.argv.quiet = false;
+  task.log(from, chalk.yellow.bold(&apos;WARNING:&apos;), mesg.join(&apos; &apos;));
+}
+
+
+/** Defines task
+ *  @param {string} id - Task name
+ *  @param {function} batch - function associated with a task. If it&apos;s string - works like alias too
+ */
+task.is = function(id, batch) { tasks[id] = batch };
+
+
+/** Executes task
+ *  @param {string} id - Task name
+ *  @param {Object} [params] - Task params
+ *  @param {boolean} [force] - Force execution, no registering, no checks
+ */
+task.do = function(id, params = {}, force = false) {
+  if (typeof(tasks[id]) === &apos;string&apos;) return task.do(tasks[id], params, force); // Alias
+
+  if (!force &amp;&amp; !task.reg(id)) return; // Already done? Register or quit
+
+  if (typeof(tasks[id]) !== &apos;function&apos;)
+    throw &apos;Invalid or undefined task: &apos; + id;
+
+  task.log(id, &apos;Begin&apos;);
+  let ret = tasks[id](params);
+  task.log(id, &apos;End&apos;);
+
+  return ret;
+}
+
+/** Shortcut for forced task execution, see {@link do} */
+task.force = function(id, params = {}) {
+  return task.do(id, params, true);
+};
+
+
+/** Checks task status, is it done?
+ *  @param {string} id - Task name
+ *  @return {boolean} *true* if done, *false* if undone
+ */
+task.done = function(id) { return tasks.__done__.indexOf(id) &gt; -1 };
+
+
+/** Registers task as done
+ *  @param {string} id - Task name
+ *  @return {boolean} *true* if success, *false* if task is already done
+ */
+task.reg = function(id) {
+  if (task.done(id)) return false;
+
+  tasks.__done__.push(id);
+  return true;
+}
+
+
+/** Clears done status for a task
+ *  @param {string} id - Task name
+ *  @return {boolean} *true* if success, *false* if task is not done yet
+ */
+task.undo = function(id) {
+  if (!task.done(id)) return false;
+
+  tasks.__done__[tasks.__done__.indexOf(id)] = undefined;
+  return true;
+}
+
+
+/** Registers alias(es) for a task
+ *  @param {string} id - Task name
+ *  @param {...string} aliases - Task alias(es)
+ *  @example
+ *  task.alias(&apos;default&apos;, &apos;build&apos;, &apos;main&apos;);
+ */
+task.alias = function(id, ...aliases) {
+  aliases.forEach(alias =&gt; task.is(id, alias));
+}
+
+
+/** Checks sources vs destinations last modification times
+ *  @param {string[]} src - Sources globs to check. Can be single string
+ *  @param {string[]} dest - Resulting build files to check. Can be single string
+ *  @param {Object} [options] - Options for *glob.sync()* when matching sources
+ *  @return {boolean} *true* if rebuild is needed, *false* if all files are up to date
+ *  @example
+ *  if (!task.check(&apos;src/*.js&apos;, &apos;build/static/main.js&apos;) return;
+ */
+task.check = function(src, dest, options = {}) {
+  let lastSrcDate  = 0,
+      lastDestDate = 0;
+
+  let getLastTime = (files, mode) =&gt; {
+    let last = 0;
+
+    files.forEach(file =&gt; {
+      if (mode &amp;&amp; !fs.existsSync(file)) return true; // Needs rebuild (dest mode)
+
+      let ctime = fs.statSync(file).ctime.getTime();
+
+      if (ctime &gt; last) last = ctime;
+    });
+
+    return last;
+  };
+
+  lastDestDate = getLastTime(typeof(dest) === &apos;string&apos; ? [dest] : dest, true);
+
+  let srcs = [];
+
+  if (typeof(src) === &apos;string&apos;)
+    srcs = glob.sync(src, options);
+  else if (typeof(src) === &apos;object&apos; &amp;&amp; Array.isArray(src))
+    src.forEach(pattern =&gt; srcs = srcs.concat(glob.sync(pattern, options)));
+
+  lastSrcDate = getLastTime(srcs);
+
+  return lastSrcDate &gt; lastDestDate;
+};
+
+
+/** Process tasks execution and command line options */
+task.cli = function() {
+  if (task.argv.task === undefined)
+    task.do(&apos;default&apos;);
+  else
+    task.argv.task.split(&apos;,&apos;).forEach(task.do);
+};
+
+
+module.exports = task;
+</code></pre>
+
+</div>
+
+<footer class="footer">
+  Generated by <a href="https://esdoc.org">ESDoc<span data-ice="esdocVersion">(0.5.2)</span><img src="./image/esdoc-logo-mini-black.png"></a>
+</footer>
+
+<script src="script/search_index.js"></script>
+<script src="script/search.js"></script>
+<script src="script/pretty-print.js"></script>
+<script src="script/inherited-summary.js"></script>
+<script src="script/test-summary.js"></script>
+<script src="script/inner-link.js"></script>
+<script src="script/patch-for-local.js"></script>
+</body>
+</html>

@@ -1,86 +1,86 @@
 window.esdocSearchIndex = [
   [
-    "wolt/wolt/index.js~alias",
+    "wolt/wolt_/index.js~alias",
     "function/index.html#static-function-alias",
-    "<span>alias</span> <span class=\"search-result-import-path\">wolt/wolt/index.js</span>",
+    "<span>alias</span> <span class=\"search-result-import-path\">wolt/wolt_/index.js</span>",
     "function"
   ],
   [
-    "wolt/wolt/index.js~check",
+    "wolt/wolt_/index.js~check",
     "function/index.html#static-function-check",
-    "<span>check</span> <span class=\"search-result-import-path\">wolt/wolt/index.js</span>",
+    "<span>check</span> <span class=\"search-result-import-path\">wolt/wolt_/index.js</span>",
     "function"
   ],
   [
-    "wolt/wolt/index.js~cli",
+    "wolt/wolt_/index.js~cli",
     "function/index.html#static-function-cli",
-    "<span>cli</span> <span class=\"search-result-import-path\">wolt/wolt/index.js</span>",
+    "<span>cli</span> <span class=\"search-result-import-path\">wolt/wolt_/index.js</span>",
     "function"
   ],
   [
-    "wolt/wolt/index.js~do",
+    "wolt/wolt_/index.js~do",
     "function/index.html#static-function-do",
-    "<span>do</span> <span class=\"search-result-import-path\">wolt/wolt/index.js</span>",
+    "<span>do</span> <span class=\"search-result-import-path\">wolt/wolt_/index.js</span>",
     "function"
   ],
   [
-    "wolt/wolt/index.js~done",
+    "wolt/wolt_/index.js~done",
     "function/index.html#static-function-done",
-    "<span>done</span> <span class=\"search-result-import-path\">wolt/wolt/index.js</span>",
+    "<span>done</span> <span class=\"search-result-import-path\">wolt/wolt_/index.js</span>",
     "function"
   ],
   [
-    "wolt/wolt/index.js~error",
+    "wolt/wolt_/index.js~error",
     "function/index.html#static-function-error",
-    "<span>error</span> <span class=\"search-result-import-path\">wolt/wolt/index.js</span>",
+    "<span>error</span> <span class=\"search-result-import-path\">wolt/wolt_/index.js</span>",
     "function"
   ],
   [
-    "wolt/wolt/index.js~force",
+    "wolt/wolt_/index.js~force",
     "function/index.html#static-function-force",
-    "<span>force</span> <span class=\"search-result-import-path\">wolt/wolt/index.js</span>",
+    "<span>force</span> <span class=\"search-result-import-path\">wolt/wolt_/index.js</span>",
     "function"
   ],
   [
-    "wolt/wolt/index.js~is",
+    "wolt/wolt_/index.js~is",
     "function/index.html#static-function-is",
-    "<span>is</span> <span class=\"search-result-import-path\">wolt/wolt/index.js</span>",
+    "<span>is</span> <span class=\"search-result-import-path\">wolt/wolt_/index.js</span>",
     "function"
   ],
   [
-    "wolt/wolt/index.js~log",
+    "wolt/wolt_/index.js~log",
     "function/index.html#static-function-log",
-    "<span>log</span> <span class=\"search-result-import-path\">wolt/wolt/index.js</span>",
+    "<span>log</span> <span class=\"search-result-import-path\">wolt/wolt_/index.js</span>",
     "function"
   ],
   [
-    "wolt/wolt/index.js~msg",
+    "wolt/wolt_/index.js~msg",
     "function/index.html#static-function-msg",
-    "<span>msg</span> <span class=\"search-result-import-path\">wolt/wolt/index.js</span>",
+    "<span>msg</span> <span class=\"search-result-import-path\">wolt/wolt_/index.js</span>",
     "function"
   ],
   [
-    "wolt/wolt/index.js~reg",
+    "wolt/wolt_/index.js~reg",
     "function/index.html#static-function-reg",
-    "<span>reg</span> <span class=\"search-result-import-path\">wolt/wolt/index.js</span>",
+    "<span>reg</span> <span class=\"search-result-import-path\">wolt/wolt_/index.js</span>",
     "function"
   ],
   [
-    "wolt/wolt/index.js~task",
+    "wolt/wolt_/index.js~task",
     "variable/index.html#static-variable-task",
-    "<span>task</span> <span class=\"search-result-import-path\">wolt/wolt/index.js</span>",
+    "<span>task</span> <span class=\"search-result-import-path\">wolt/wolt_/index.js</span>",
     "variable"
   ],
   [
-    "wolt/wolt/index.js~undo",
+    "wolt/wolt_/index.js~undo",
     "function/index.html#static-function-undo",
-    "<span>undo</span> <span class=\"search-result-import-path\">wolt/wolt/index.js</span>",
+    "<span>undo</span> <span class=\"search-result-import-path\">wolt/wolt_/index.js</span>",
     "function"
   ],
   [
-    "wolt/wolt/index.js~warn",
+    "wolt/wolt_/index.js~warn",
     "function/index.html#static-function-warn",
-    "<span>warn</span> <span class=\"search-result-import-path\">wolt/wolt/index.js</span>",
+    "<span>warn</span> <span class=\"search-result-import-path\">wolt/wolt_/index.js</span>",
     "function"
   ],
   [
@@ -414,9 +414,9 @@ window.esdocSearchIndex = [
     "external"
   ],
   [
-    "wolt/index.js",
-    "file/wolt/index.js.html",
-    "wolt/index.js",
+    "wolt_/index.js",
+    "file/wolt_/index.js.html",
+    "wolt_/index.js",
     "file"
   ]
 ]
